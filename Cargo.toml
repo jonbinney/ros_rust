@@ -6,5 +6,5 @@ authors = [ "Your name <you@example.com>" ]
 
 [[bin]]
 
-name = "hello_world"
+name = "rosrust"
 
