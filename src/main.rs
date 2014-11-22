@@ -2,7 +2,7 @@ use std::io::TcpStream;
 use std::fmt;
 use std::string;
 
-fn execute_xmlrpc_request(stream: &mut TcpStream, request: String) -> String {
+fn execute_xmlrpc_request(stream: &mut TcpStream, request: &String) -> String {
 
     let header = format!(
         "POST /RPC2 HTTP/1.0\n\
@@ -11,7 +11,7 @@ fn execute_xmlrpc_request(stream: &mut TcpStream, request: String) -> String {
         Content-Type: text/xml\n\
         Content-length: {content_length}\n\n", content_length=request.len());
 
-    let message = header + request;
+    let message = header + *request;
 
     println!("request: {}", message);
 
@@ -36,7 +36,7 @@ fn main() {
           </params>\n\
         </methodCall>\n".to_string();
 
-    let response = execute_xmlrpc_request(&mut stream, request);
+    let response = execute_xmlrpc_request(&mut stream, &request);
     println!("response: {}", response);
 }
 
