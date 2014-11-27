@@ -1,10 +1,8 @@
 [package]
-
 name = "ros_rust"
 version = "0.0.1"
 authors = [ "Jon Binney <jon.binney@gmail.com>" ]
 
-[[bin]]
-
+[lib]
 name = "ros_rust"
 
