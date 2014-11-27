@@ -6,3 +6,6 @@ authors = [ "Jon Binney <jon.binney@gmail.com>" ]
 [lib]
 name = "ros_rust"
 
+[[bin]]
+name = "ros_rust_demo"
+
