@@ -6,7 +6,7 @@ pub struct XMLRPCProxy {
 }
 
 impl XMLRPCProxy {
-    pub fn execute_request(&self, request: &str) -> Vec<String> {
+    pub fn execute_request(&self, request: &str) -> Result<Response, String> {
 
         let mut stream = TcpStream::connect(self.server_uri.as_slice()).unwrap();
 
@@ -33,27 +33,55 @@ impl XMLRPCProxy {
             Err(err) => panic!("{}", err),
         };
 
-        // Parse reponse
-        parse_response(response_str.as_slice())
+        // Parse response
+        match parse_response(response_str.as_slice()) {
+            Ok(response) => Ok(response),
+            Err(err) => Err(err)
+        }
     }
 }
 
-fn parse_response(response_str: &str) -> Vec<String> {
+#[deriving(Show, PartialEq)]
+pub enum XMLRPCValue {
+    Empty,
+    Int (int),
+    Boolean (bool),
+    String (String),
+    Double (f64),
+    // Currently not handling dateTime.iso8601 base64, or struct types
+}
+
+/// An XMLRPC response can either be success, in which case a single
+/// param is optionally returned, or a fault, in which case a fault code and
+/// fault string are optionally included.
+#[deriving(Show, PartialEq)]
+pub enum Response {
+    Success {param: XMLRPCValue},
+    Fault {fault_code: int, fault_string: String},
+}
+
+fn parse_response(response_str: &str) -> Result<Response, String> {
     let param_re = match Regex::new(r"<value><string>([^<]*)</string></value>") {
         Ok(re) => re,
-        Err(err) => panic!("{}", err),
+        Err(err) => return Err(format!("Parse error: {}", err)),
     };
 
-    let mut params: Vec<String> = vec![];
+    let mut num_params = 0i;
+    let mut param = XMLRPCValue::Empty;
     for cap in param_re.captures_iter(response_str) {
-        params.push(cap.at(1).to_string());
-        println!("{}", cap.at(1));
+        param = XMLRPCValue::String(cap.at(1).to_string());
+        num_params += 1;
     }
-    params
+
+    // XMLRPC allows zero or one returned params in a response
+    match num_params {
+        0|1 => Ok(Response::Success {param: param}),
+        _ => Err(format!("Too many parameters in response ({})", num_params)),
+    }
 }
 
 #[test]
-fn test_parse_good_response() {
+fn test_parse_response_good() {
     let response_str =
     "HTTP/1.1 200 OK\n\
     Content-Length: 158\n\
@@ -67,9 +95,33 @@ fn test_parse_good_response() {
        </params>\n\
     </methodResponse>\n";
 
-    let params = parse_response(response_str);
-    let mut correct_result: Vec<String> = vec![];
-    correct_result.push("param1".to_string());
-    assert_eq!(params, correct_result);
+    let response = match parse_response(response_str) {
+        Ok(response) => response,
+        Err(_) => return assert!(false),
+    };
+    let correct_response = Response::Success {param: XMLRPCValue::String("param1".to_string())};
+    assert_eq!(response, correct_response);
+}
+
+#[test]
+fn test_parse_response_too_many_params() {
+    let response_str =
+    "HTTP/1.1 200 OK\n\
+    Content-Length: 158\n\
+    Content-Type: text/xml\n\n\
+    <?xml version=\"1.0\"?>\n\
+    <methodResponse>\n\
+       <params>\n\
+          <param>\n\
+             <value><string>param1</string></value>\n\
+             <value><string>param2</string></value>\n\
+          </param>\n\
+       </params>\n\
+    </methodResponse>\n";
+
+    match parse_response(response_str) {
+        Ok(_) => return assert!(false),
+        Err(_) => return (),
+    };
 }
 
