@@ -1,7 +1,9 @@
 use std::fmt;
 use std::string;
 
-struct MasterProxy {
+use xmlrpc;
+
+pub struct MasterProxy {
     master_uri: String,
     caller_id: String,
     caller_api: String
@@ -9,21 +11,10 @@ struct MasterProxy {
 
 
 impl MasterProxy {
-    fn get_published_topics(&self) -> String
+    fn get_published_topics(&self, root: String) -> Vec<string>
     {
-        let request = format!(
-            "<?xml version=\"1.0\"?>\n\
-            <methodCall>\n\
-            <methodName>getPublishedTopics</methodName>\n\
-            <params>\n\
-            <param>\n\
-            <value><string>{}</string></value>\n\
-            <value><string></string></value>\n\
-            </param>\n\
-            </params>\n\
-            </methodCall>\n", self.caller_id);
-
-        execute_xmlrpc_request(self.master_uri.as_slice(), request.as_slice())
+        execute_xmlrpc_request(self.master_uri.as_slice(),
+            xmlrpc::Request {method_name: getPublishedTopics, params: vec!["/"]
     }
 
     fn register_subscriber(&self,  topic: &str, topic_type: &str) {

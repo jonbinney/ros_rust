@@ -1,25 +1,38 @@
 use std::io::TcpStream;
 use regex::Regex;
 
-pub struct XMLRPCProxy {
-    server_uri: String
+pub struct Client {
+    pub server_uri: String
 }
 
-impl XMLRPCProxy {
-    pub fn execute_request(&self, request: &str) -> Result<Response, String> {
+#[deriving(Show, PartialEq)]
+pub enum Value {
+    Empty,
+    Int (int),
+    Boolean (bool),
+    String (String),
+    Double (f64),
+    // Currently not handling dateTime.iso8601 base64, or struct types
+}
+
+#[deriving(Show, PartialEq)]
+pub enum Response {
+    Success {param: Value},
+    Fault {fault_code: int, fault_string: String},
+}
+
+#[deriving(Show, PartialEq)]
+pub struct Request {
+    pub method_name: String,
+    pub params: Vec<Value>,
+}
+
+impl Client {
+    pub fn execute_request(&self, request: &Request) -> Result<Response, String> {
 
         let mut stream = TcpStream::connect(self.server_uri.as_slice()).unwrap();
 
-        let header = format!(
-            "POST /RPC2 HTTP/1.0\n\
-            User-Agent: RosRust/0.0\n\
-            Host: localhost\n\
-            Content-Type: text/xml\n\
-            Content-length: {content_length}\n\n", content_length=request.len());
-
-        let message = header + request.to_string();
-
-        println!("request: {}", message);
+        let message = create_http_post(serialize_request(request).as_slice());
 
         // Send request to server
         match stream.write(message.as_bytes()) {
@@ -34,42 +47,23 @@ impl XMLRPCProxy {
         };
 
         // Parse response
-        match parse_response(response_str.as_slice()) {
+        match deserialize_response(response_str.as_slice()) {
             Ok(response) => Ok(response),
             Err(err) => Err(err)
         }
     }
 }
 
-#[deriving(Show, PartialEq)]
-pub enum XMLRPCValue {
-    Empty,
-    Int (int),
-    Boolean (bool),
-    String (String),
-    Double (f64),
-    // Currently not handling dateTime.iso8601 base64, or struct types
-}
-
-/// An XMLRPC response can either be success, in which case a single
-/// param is optionally returned, or a fault, in which case a fault code and
-/// fault string are optionally included.
-#[deriving(Show, PartialEq)]
-pub enum Response {
-    Success {param: XMLRPCValue},
-    Fault {fault_code: int, fault_string: String},
-}
-
-fn parse_response(response_str: &str) -> Result<Response, String> {
-    let param_re = match Regex::new(r"<value><string>([^<]*)</string></value>") {
+fn deserialize_response(response_str: &str) -> Result<Response, String> {
+    let param_re = match Regex::new(r"<value><([a-z0-9]+)>([^<]*)") {
         Ok(re) => re,
         Err(err) => return Err(format!("Parse error: {}", err)),
     };
 
     let mut num_params = 0i;
-    let mut param = XMLRPCValue::Empty;
+    let mut param = Value::Empty;
     for cap in param_re.captures_iter(response_str) {
-        param = XMLRPCValue::String(cap.at(1).to_string());
+        param = Value::String(cap.at(1).to_string());
         num_params += 1;
     }
 
@@ -80,13 +74,37 @@ fn parse_response(response_str: &str) -> Result<Response, String> {
     }
 }
 
+fn create_http_post(body: &str) -> String {
+    format!(
+        "POST /RPC2 HTTP/1.0\n\
+        User-Agent: RosRust/0.0\n\
+        Host: localhost\n\
+        Content-Type: text/xml\n\
+        Content-length: {content_length}\n\n{body}", content_length=body.len(), body=body)
+}
+
+fn serialize_request(request: &Request) -> String {
+    let mut param_str = "".to_string();
+    for param in request.params.iter() {
+        param_str = param_str + format!("<param><value><string>{}</string></value></param>", param);
+    };
+
+    format!(
+    "<?xml version=\"1.0\"?>\n\
+    <methodCall>\n\
+    <methodName>{}</methodName>\n\
+    <params>\n\
+      <param>\n\
+      {}\n\
+      </param>\n\
+    </params>\n\
+    </methodCall>\n", request.method_name, param_str)
+}
+
 #[test]
-fn test_parse_response_good() {
+fn test_deserialize_response_good() {
     let response_str =
-    "HTTP/1.1 200 OK\n\
-    Content-Length: 158\n\
-    Content-Type: text/xml\n\n\
-    <?xml version=\"1.0\"?>\n\
+    "<?xml version=\"1.0\"?>\n\
     <methodResponse>\n\
        <params>\n\
           <param>\n\
@@ -95,21 +113,18 @@ fn test_parse_response_good() {
        </params>\n\
     </methodResponse>\n";
 
-    let response = match parse_response(response_str) {
+    let response = match deserialize_response(response_str) {
         Ok(response) => response,
         Err(_) => return assert!(false),
     };
-    let correct_response = Response::Success {param: XMLRPCValue::String("param1".to_string())};
+    let correct_response = Response::Success {param: Value::String("param1".to_string())};
     assert_eq!(response, correct_response);
 }
 
 #[test]
-fn test_parse_response_too_many_params() {
+fn test_deserialize_response_too_many_params() {
     let response_str =
-    "HTTP/1.1 200 OK\n\
-    Content-Length: 158\n\
-    Content-Type: text/xml\n\n\
-    <?xml version=\"1.0\"?>\n\
+    "<?xml version=\"1.0\"?>\n\
     <methodResponse>\n\
        <params>\n\
           <param>\n\
@@ -119,7 +134,7 @@ fn test_parse_response_too_many_params() {
        </params>\n\
     </methodResponse>\n";
 
-    match parse_response(response_str) {
+    match deserialize_response(response_str) {
         Ok(_) => return assert!(false),
         Err(_) => return (),
     };
