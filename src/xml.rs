@@ -1,4 +1,4 @@
-//! Module for parsing XML documents.
+//! Module for parsing and serializing XML documents.
 //!
 //! Only implements the subset of the XML specification needed to
 //! parse XMLRPC requests and responses - does not implement attributes,
@@ -120,6 +120,22 @@ fn parse_element(input_str: &str) -> Result<(Element, &str), String> {
     };
 
     Ok((element, remaining_str))
+}
+
+pub fn serialize_xml(element: &Element) -> String {
+    "<?xml version=\"1.0\"?>\n".to_string() + serialize_element(element)
+}
+
+fn serialize_element(element: &Element) -> String {
+    let mut result = "".to_string();
+
+    result = result + format!("<{}>{}", element.name, element.text);
+    for child_element in element.children.iter() {
+        result = result + serialize_element(child_element);
+    }
+    result = result + format!("</{}>", element.name);
+
+    result
 }
 
 fn get_pi_token(input_str: &str) -> Option<(Token, &str)> {
@@ -269,9 +285,6 @@ fn test_parse_xml() {
             <param>\n\
               <value><string>some_string_param</string></value>\n\
             </param>\n\
-            <param>\n\
-              <value><int>some_int_param</int></value>\n\
-            </param>\n\
           </params>\n\
         </methodResponse>\n\
         ") {
@@ -284,15 +297,36 @@ fn test_parse_xml() {
                         make_element("value", "", vec![
                             make_element("string", "some_string_param", vec![])
                         ])
-                    ]),
-                    make_element("param", "\n", vec![
-                        make_element("value", "", vec![
-                            make_element("int", "some_int_param", vec![])
-                        ])
                     ])
                 ])
             ])
         ),
     }
+}
+
+#[test]
+fn test_serialize_xml() {
+    let element = make_element("methodCall", "\n", vec![
+        make_element("methodName", "foo", vec![]),
+        make_element("params", "\n", vec![
+            make_element("param", "\n", vec![
+                make_element("value", "", vec![
+                    make_element("string", "some_string_param", vec![])
+                ])
+            ]),
+            make_element("param", "\n", vec![
+                make_element("value", "", vec![
+                    make_element("int", "some_int_param", vec![])
+                ])
+            ])
+        ])
+    ]);
+
+    // Serialize and de-serialize to test full loop.
+    let serialized_xml = serialize_xml(&element);
+    match parse_xml(serialized_xml.as_slice()) {
+        Err(_) => panic!("Failed to parse serialized xml"),
+        Ok(parsed_element) => assert_eq!(parsed_element, element),
+    };
 }
 
