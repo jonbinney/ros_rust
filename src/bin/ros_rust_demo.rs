@@ -1,6 +1,7 @@
 extern crate ros_rust;
 use ros_rust::xmlrpc;
 
+#[allow(dead_code)]
 fn main() {
     println!("Starting node");
 

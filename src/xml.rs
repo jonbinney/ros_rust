@@ -12,9 +12,16 @@ use regex;
 /// An XML element. An element in an XML document is defined by a start and
 /// end tag, and may have text or other elements inside of it. There is also
 /// an implicit "root" element which includes all other elements.
+#[deriving(Show, PartialEq, Clone)]
 pub struct Element {
     name: String,
+    text: String,
     children: Vec<Element>,
+}
+
+/// Convenience function to avoid calling .to_string() for name and text member
+fn make_element(name: &str, text: &str, children: Vec<Element>) -> Element {
+    Element {name: name.to_string(), text: text.to_string(), children: children}
 }
 
 enum Token {
@@ -24,74 +31,95 @@ enum Token {
     Text(String), // Text
 }
 
-pub fn parse_recursive(input_str: &str) -> Result<Element, String> {
-    let remaining_str = input_str;
-    let mut root = Element {name: "root".to_string(), children: vec![]};
+pub fn parse_xml(input_str: &str) -> Result<Element, String> {
+    let mut remaining_str = input_str;
 
-    let mut open_elements: Vec<&Element> = vec![];
-    open_elements.push(&root);
-    loop {
-        let (tok, remaining_str) = match get_token(remaining_str) {
-            Some((Token, new_remaining_str)) => if new_remaining_str.len() < remaining_str.len() {
-                (Token, new_remaining_str)} else {panic!("Caught in parsing loop")},
-            None => break,
-        };
+    // Ignore any preceeding (non-tag) text
+    remaining_str = match get_text_token(remaining_str) {
+        None => remaining_str,
+        Some((Token::Text(_), new_remaining_str)) => new_remaining_str,
+        Some((_, _)) => panic!("Bad token type returned"),
+    };
 
-        match tok {
-            Token::STag(new_tag_name) => {
-                let num_elements = open_elements.len();
-                let &mut parent_element = match open_elements.get_mut(num_elements-1) {
-                    None => return Err("Root element has gone missing".to_string()),
-                    Some(&mut parent_element) => parent_element,
-                };
-                parent_element.children.push(Element {name: new_tag_name, children: vec![]});
+    // Remove any initial <?xml version="foo"?> tag
+    remaining_str = match get_pi_token(remaining_str) {
+        None => remaining_str,
+        Some((Token::PI, new_remaining_str)) => new_remaining_str,
+        Some((_, _)) => panic!("Bad token type returned"),
+    };
 
-                // Get a reference to the child we just created, and add it to the vector
-                // of open elements. (This seems like an ugly way to do this...)
-                let num_children = parent_element.children.len();
-                open_elements.push(match parent_element.children.get_mut(num_children-1) {
-                    None => panic!("Child element we just created disappeared..."),
-                    Some(mut new_element) => new_element,
-                });
-            },
-
-            // Need to add handlers for other cases
-            _ => {},
-        }
-
-    }
-
-    // In a properly formed document, only the root element should be left open
-    match open_elements.len() {
-        0 => Err("Root element closed explicitly".to_string()),
-        1 => match open_elements.pop() {
-            Some(x) => Ok(*x),
-            None => panic!("Unexpected empty vector"),
-        },
-        l => Err(format!("{} unclosed elements", l)),
-    }
+    // Parse the main element (assumes there is exactly one)
+    let element = match parse_element(remaining_str) {
+        Ok((el, _)) => el,
+        Err(err) => return Err(err),
+    };
+    Ok(element)
 }
 
-/// Parse the next token from the given string.
-///
-/// Returns the token and the remaining unparsed part of the string.
-fn get_token(input_str: &str) -> Option<(Token, &str)> {
-    match get_pi_token(input_str) {
-        None => (),
-        x => return x,
+fn parse_element(input_str: &str) -> Result<(Element, &str), String> {
+    let mut remaining_str = input_str;
+    let mut element = make_element("", "", vec![]);
+
+    // Ignore any preceeding (non-tag) text
+    remaining_str = match get_text_token(remaining_str) {
+        None => remaining_str,
+        Some((Token::Text(_), new_remaining_str)) => new_remaining_str,
+        Some((_, _)) => panic!("Bad token type returned"),
     };
 
-    match get_stag_token(input_str) {
-        None => (),
-        x => return x,
+    // Parse starting tag
+    remaining_str = match get_stag_token(remaining_str) {
+        None => return Err("No starting tag".to_string()),
+        Some((Token::STag(tag_name), new_remaining_str)) => {
+            element.name = tag_name;
+            new_remaining_str
+        },
+        Some((_, _)) => panic!("Bad token type returned"),
     };
 
-    match get_etag_token(input_str) {
-        None => (),
-        x => return x,
+    // Parse body text of this element
+    remaining_str = match get_text_token(remaining_str) {
+        None => remaining_str,
+        Some((Token::Text(text), new_remaining_str)) => {
+            element.text = text;
+            new_remaining_str
+        },
+        Some((_, _)) => panic!("Bad token type returned"),
     };
 
-    get_text_token(input_str)
+    // Parse any child elements
+    loop {
+        match parse_element(remaining_str) {
+            Ok((child_element, new_remaining_str)) => {
+                element.children.push(child_element);
+                remaining_str = new_remaining_str;
+            },
+            Err(_) => {break;},
+        }
+    }
+
+    // Ignore text after children
+    remaining_str = match get_text_token(remaining_str) {
+        None => remaining_str,
+        Some((Token::Text(_), new_remaining_str)) => new_remaining_str,
+        Some((_, _)) => panic!("Bad token type returned"),
+    };
+
+    // Parse ending tag
+    remaining_str = match get_etag_token(remaining_str) {
+        None => return Err("No starting tag".to_string()),
+        Some((Token::ETag(end_tag_name), new_remaining_str)) =>
+            if end_tag_name == element.name {
+                new_remaining_str
+            }
+            else {
+                return Err(format!("Start tag {} does not match end tag {}",
+                    element.name, end_tag_name));
+            },
+        Some((_, _)) => panic!("Bad token type returned"),
+    };
+
+    Ok((element, remaining_str))
 }
 
 fn get_pi_token(input_str: &str) -> Option<(Token, &str)> {
@@ -219,5 +247,52 @@ fn test_get_text_token() {
         Some(_) => return assert!(false, "Incorrect match"),
         _ => (),
     };
+}
+
+#[test]
+fn test_parse_xml() {
+    // Simplest possible test
+    match parse_xml("<foo></foo>") {
+        Err(_) => assert!(false, "Failed to parse"),
+        Ok(element) => assert_eq!(
+            element,
+            make_element("foo", "", vec![])
+        ),
+    }
+
+    // Should be able to parse an xmlrpc response
+    match parse_xml(
+        "\
+        <?xml version=\"1.0\"?>\n\
+        <methodResponse>\n\
+          <params>\n\
+            <param>\n\
+              <value><string>some_string_param</string></value>\n\
+            </param>\n\
+            <param>\n\
+              <value><int>some_int_param</int></value>\n\
+            </param>\n\
+          </params>\n\
+        </methodResponse>\n\
+        ") {
+        Err(_) => assert!(false, "Failed to parse"),
+        Ok(element) => assert_eq!(
+            element,
+            make_element("methodResponse", "\n", vec![
+                make_element("params", "\n", vec![
+                    make_element("param", "\n", vec![
+                        make_element("value", "", vec![
+                            make_element("string", "some_string_param", vec![])
+                        ])
+                    ]),
+                    make_element("param", "\n", vec![
+                        make_element("value", "", vec![
+                            make_element("int", "some_int_param", vec![])
+                        ])
+                    ])
+                ])
+            ])
+        ),
+    }
 }
 
