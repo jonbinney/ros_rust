@@ -1,5 +1,5 @@
 use std::io::TcpStream;
-use regex::Regex;
+use xml;
 
 pub struct Client {
     pub server_uri: String
@@ -54,24 +54,36 @@ impl Client {
     }
 }
 
+/// Parse one xmlrpc parameter from an xml <params> element
+fn parse_param(xml::Element &element) => Result<Value, String> {
+}
+
+/// Parse all xmlrpc params in an xml <param> element
+fn parse_params(xml::Element &element) => Result<Vec<Value>, String> {
+    if element.name.to_slice() != "params" {
+        Err("Expected <params>, found {}", element.name)
+    }
+    else {
+        Vec<Value> param_values;
+        for child_element in element.children.iter() {
+        }
+    }
+
+}
+
+
 fn deserialize_response(response_str: &str) -> Result<Response, String> {
-    let param_re = match Regex::new(r"<value><([a-z0-9]+)>([^<]*)") {
-        Ok(re) => re,
-        Err(err) => return Err(format!("Parse error: {}", err)),
-    };
-
-    let mut num_params = 0i;
-    let mut param = Value::Empty;
-    for cap in param_re.captures_iter(response_str) {
-        param = Value::String(cap.at(1).to_string());
-        num_params += 1;
+    // Technically we should remove the http header first, but the xml
+    // parser will actually ignore it and work anyway. Unless there is
+    // a "<" in it. Then this will totally fail.
+    match xml::parse_xml(response_str) {
+        Err(err) => return Err("Expected methodResponse, found {}", element.name),
+        xml::Element {name, text, children} =
     }
 
-    // XMLRPC allows zero or one returned params in a response
-    match num_params {
-        0|1 => Ok(Response::Success {param: param}),
-        _ => Err(format!("Too many parameters in response ({})", num_params)),
-    }
+    element.children[0].children[0
+
+    let 
 }
 
 fn create_http_post(body: &str) -> String {
