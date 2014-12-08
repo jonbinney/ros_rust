@@ -1,12 +1,10 @@
-use std::io::TcpStream;
-
 use xml;
-use xmlrpc::{Value, Request, Response};
+use xmlrpc::{Value, Response};
 
 fn parse_int(s: &str) -> Result<Value, String> {
     let x: Option<int> = from_str(s);
     match x {
-        Some(x) => Ok(Value::int(x)),
+        Some(x) => Ok(Value::Int(x)),
         None => Err(format!("String cannot be parsed to integer ({})", s)),
     }
 }
@@ -47,28 +45,24 @@ fn parse_param(element: &xml::Element) -> Result<Value, String> {
 }
 
 /// Parse an XMLRPC response
-fn parse_response(response_str: &str) -> Result<Response, String> {
+pub fn parse_response(response_str: &str) -> Result<Response, String> {
     // Technically we should remove the http header first, but the xml
     // parser will actually ignore it and work anyway. Unless there is
     // a "<" in it. Then this will totally fail.
-    let method_response_element = match xml::parse_xml(response_str) {
-        Err(err) => return Err("Failed to parse response xml".to_string()),
-        Ok(element) => element,
-    };
-
-    match method_response_element.children.len() {
-        1 =>  {
-            match method_response_element.children[0] {
-                params_element => match params_element.children.len() {
+    match xml::parse_xml(response_str) {
+        Err(_) => return Err("Failed to parse response xml".to_string()),
+        Ok(method_response_element) => match method_response_element.children.len() {
+            1 => match method_response_element.children[0] {
+                ref params_element => match params_element.children.len() {
                     1 => match parse_param(&params_element.children[0]) {
                         Ok(x) => Ok(Response::Success {param: x}),
                         Err(err) => return Err(err),
                     },
                     x => return Err(format!("Bad number of params in XMLRPC response ({})", x)),
                 },
-            }
+            },
+            x => return Err(format!("Bad number of children for methodResponse ({})", x)),
         },
-        x => return Err(format!("Bad number of children for methodResponse ({})", x)),
     }
 }
 

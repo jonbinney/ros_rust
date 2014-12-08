@@ -1,9 +1,9 @@
 #[deriving(Show, PartialEq)]
 pub enum Value {
-    int (int),
-    boolean (bool),
-    string (String),
-    double (f64),
+    Int (int),
+    Boolean (bool),
+    String (String),
+    Double (f64),
     // Currently not handling dateTime.iso8601 base64 or struct types
 }
 
