@@ -1,3 +1,6 @@
+pub mod parser;
+pub mod client;
+
 #[deriving(Show, PartialEq)]
 pub enum Value {
     Int (int),
@@ -19,4 +22,3 @@ pub struct Request {
     pub params: Vec<Value>,
 }
 
-pub mod parser;

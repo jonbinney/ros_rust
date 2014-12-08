@@ -11,7 +11,7 @@ fn main() {
             xmlrpc::Value::String("/".to_string()),
             ]};
 
-    let c = xmlrpc::Client {server_uri: "localhost:11311".to_string()};
+    let c = xmlrpc::client::Client {server_uri: "localhost:11311".to_string()};
     let response = match c.execute_request(&request) {
             Ok(response) => response,
             Err(err) => panic!("Err: {}", err),

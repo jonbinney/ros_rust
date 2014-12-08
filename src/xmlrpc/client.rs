@@ -1,6 +1,7 @@
 use std::io::TcpStream;
 
-use parser;
+use xmlrpc::parser;
+use xmlrpc::{Request, Response};
 
 pub struct Client {
     pub server_uri: String
@@ -26,7 +27,7 @@ impl Client {
         };
 
         // Parse response
-        match parse_response(response_str.as_slice()) {
+        match parser::parse_response(response_str.as_slice()) {
             Ok(response) => Ok(response),
             Err(err) => Err(err)
         }

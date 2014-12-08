@@ -9,13 +9,17 @@ fn parse_int(s: &str) -> Result<Value, String> {
     }
 }
 
+fn parse_string(s: &str) -> Result<Value, String> {
+    Ok(Value::String(s.to_string()))
+}
+
 /// Parse an XMLRPC data element (e.g. <string>, <int> ...)
 fn parse_value_data(element: &xml::Element) -> Result<Value, String> {
     match element.name.as_slice() {
         "i4" => parse_int(element.text.as_slice()),
-        //"int" => parse_int(data_element.text),
+        "int" => parse_int(element.text.as_slice()),
         //"boolean" => parse_boolean(data_element.text),
-        //"string" => parse_string(data_element.text),
+        "string" => parse_string(element.text.as_slice()),
         //"double" => parse_double(data_elemnt.text),
         // Currently not handling dateTime.iso8601 base64 or struct types
         x => Err(format!("Found unknown xmlrpc datatype ({})", x)),
@@ -80,9 +84,9 @@ fn test_parse_response_good() {
 
     let response = match parse_response(response_str) {
         Ok(response) => response,
-        Err(_) => return assert!(false),
+        Err(err) => return assert!(false, "Parsing of response failed: {}", err),
     };
-    let correct_response = Response::Success {param: Value::string("param1".to_string())};
+    let correct_response = Response::Success {param: Value::String("param1".to_string())};
     assert_eq!(response, correct_response);
 }
 
