@@ -14,9 +14,9 @@ use regex;
 /// an implicit "root" element which includes all other elements.
 #[deriving(Show, PartialEq, Clone)]
 pub struct Element {
-    name: String,
-    text: String,
-    children: Vec<Element>,
+    pub name: String,
+    pub text: String,
+    pub children: Vec<Element>,
 }
 
 /// Convenience function to avoid calling .to_string() for name and text member
