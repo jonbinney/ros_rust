@@ -1,5 +1,6 @@
 pub mod parser;
 pub mod client;
+pub mod server;
 
 #[deriving(Show, PartialEq)]
 pub enum Value {
