@@ -13,6 +13,24 @@ fn parse_string(s: &str) -> Result<Value, String> {
     Ok(Value::String(s.to_string()))
 }
 
+fn parse_array(element: &xml::Element) -> Result<Value, String> {
+    match element.children.len() {
+        1 => parse_array_data(&element.children[0]),
+        x => Err(format!("Bad number of children for <array> element ({})", x)),
+    }
+}
+
+fn parse_array_data(element: &xml::Element) -> Result<Value, String> {
+    let mut array = vec![];
+    for child in element.children.iter() {
+        match parse_value(child) {
+            Ok(val) => {array.push(val)},
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(Value::Array(array))
+}
+
 /// Parse an XMLRPC data element (e.g. <string>, <int> ...)
 fn parse_value_data(element: &xml::Element) -> Result<Value, String> {
     match element.name.as_slice() {
@@ -20,7 +38,8 @@ fn parse_value_data(element: &xml::Element) -> Result<Value, String> {
         "int" => parse_int(element.text.as_slice()),
         //"boolean" => parse_boolean(data_element.text),
         "string" => parse_string(element.text.as_slice()),
-        //"double" => parse_double(data_elemnt.text),
+        //"double" => parse_double(element.text),
+        "array" => parse_array(element),
         // Currently not handling dateTime.iso8601 base64 or struct types
         x => Err(format!("Found unknown xmlrpc datatype ({})", x)),
     }
@@ -104,6 +123,53 @@ fn test_parse_response_too_many_params() {
     match parse_response(response_str) {
         Ok(_) => return assert!(false),
         Err(_) => return (),
+    };
+}
+
+#[test]
+fn test_parse_array_simple() {
+    let array_str =
+    "<value><array><data>\n\
+    <value><int>1</int></value>\n\
+    <value><int>2</int></value>\n\
+    </data></array></value>\n";
+
+    let correct_val = Value::Array(vec![Value::Int(1), Value::Int(2)]);
+
+    let value_element = match xml::parse_xml(array_str) {
+        Ok(el) => el,
+        Err(err) => return assert!(false, err),
+    };
+
+    match parse_value(&value_element) {
+        Ok(val) => return assert_eq!(val, correct_val),
+        Err(err) => return assert!(false, err),
+    };
+}
+
+#[test]
+fn test_parse_array_nested() {
+    let array_str =
+    "<value><array><data>\n\
+    <value><int>1</int></value>\n\
+    <value><string>Registered [meeeee] as publisher of [/foo]</string></value>\n\
+    <value><array><data>\n\
+    </data></array></value>\n\
+    </data></array></value>\n";
+
+    let correct_val = Value::Array(
+        vec![Value::Int(1),
+        Value::String("Registered [meeeee] as publisher of [/foo]".to_string()),
+        Value::Array(vec![])]);
+
+    let value_element = match xml::parse_xml(array_str) {
+        Ok(el) => el,
+        Err(err) => return assert!(false, err),
+    };
+
+    match parse_value(&value_element) {
+        Ok(val) => return assert_eq!(val, correct_val),
+        Err(err) => return assert!(false, err),
     };
 }
 

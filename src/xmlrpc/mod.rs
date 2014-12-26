@@ -8,6 +8,7 @@ pub enum Value {
     Boolean (bool),
     String (String),
     Double (f64),
+    Array (Vec<Value>),
     // Currently not handling dateTime.iso8601 base64 or struct types
 }
 
