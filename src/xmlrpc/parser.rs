@@ -44,7 +44,7 @@ fn parse_param(element: &xml::Element) -> Result<Value, String> {
             1 => parse_value(&element.children[0]),
             x => Err(format!("Bad number of children for <param> element ({})", x)),
         },
-        name => Err(format!("Expected <value>, found <{}>", name)),
+        name => Err(format!("Expected <param>, found <{}>", name)),
     }
 }
 
@@ -53,20 +53,18 @@ pub fn parse_response(response_str: &str) -> Result<Response, String> {
     // Technically we should remove the http header first, but the xml
     // parser will actually ignore it and work anyway. Unless there is
     // a "<" in it. Then this will totally fail.
-    match xml::parse_xml(response_str) {
-        Err(_) => return Err("Failed to parse response xml".to_string()),
-        Ok(method_response_element) => match method_response_element.children.len() {
-            1 => match method_response_element.children[0] {
-                ref params_element => match params_element.children.len() {
-                    1 => match parse_param(&params_element.children[0]) {
-                        Ok(x) => Ok(Response::Success {param: x}),
+    let method_response_element = try!(xml::parse_xml(response_str));
+    match method_response_element.children.len() {
+        1 => match method_response_element.children[0] {
+            ref params_element => match params_element.children.len() {
+                1 => match parse_param(&params_element.children[0]) {
+                    Ok(x) => Ok(Response::Success {param: x}),
                         Err(err) => return Err(err),
-                    },
-                    x => return Err(format!("Bad number of params in XMLRPC response ({})", x)),
                 },
+                x => return Err(format!("Bad number of params in XMLRPC response ({})", x)),
             },
-            x => return Err(format!("Bad number of children for methodResponse ({})", x)),
         },
+          x => return Err(format!("Bad number of children for methodResponse ({})", x)),
     }
 }
 

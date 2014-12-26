@@ -1,7 +1,7 @@
 use std::io::TcpStream;
 
 use xmlrpc::parser;
-use xmlrpc::{Request, Response};
+use xmlrpc::{Request, Response, Value};
 
 pub struct Client {
     pub server_uri: String
@@ -10,9 +10,13 @@ pub struct Client {
 impl Client {
     pub fn execute_request(&self, request: &Request) -> Result<Response, String> {
 
-        let mut stream = TcpStream::connect(self.server_uri.as_slice()).unwrap();
+        let mut stream = match TcpStream::connect(self.server_uri.as_slice()) {
+            Ok(x) => x,
+            Err(_) => return Err("Unable to connect to xmlrpc server".to_string()),
+        };
 
-        let message = create_http_post(serialize_request(request).as_slice());
+        let message = create_http_post(try!(serialize_request(request)).as_slice());
+        println!("Request: \n{}", message);
 
         // Send request to server
         match stream.write(message.as_bytes()) {
@@ -25,6 +29,8 @@ impl Client {
             Ok(response_str) => response_str,
             Err(err) => panic!("{}", err),
         };
+
+        println!("Response: \n{}", response_str);
 
         // Parse response
         match parser::parse_response(response_str.as_slice()) {
@@ -43,13 +49,19 @@ fn create_http_post(body: &str) -> String {
         Content-length: {content_length}\n\n{body}", content_length=body.len(), body=body)
 }
 
-fn serialize_request(request: &Request) -> String {
+fn serialize_request(request: &Request) -> Result<String, String> {
     let mut param_str = "".to_string();
     for param in request.params.iter() {
-        param_str = param_str + format!("<param><value><string>{}</string></value></param>", param);
+        match param {
+            &Value::String(ref val) => {
+                param_str = param_str + format!(
+                  "<param><value><string>{}</string></value></param>", val).as_slice();
+            },
+            other_val => return Err(format!("Don't know how to serialize XMLRPC value {}", other_val)),
+        };
     };
 
-    format!(
+    Ok(format!(
     "<?xml version=\"1.0\"?>\n\
     <methodCall>\n\
     <methodName>{}</methodName>\n\
@@ -58,6 +70,6 @@ fn serialize_request(request: &Request) -> String {
       {}\n\
       </param>\n\
     </params>\n\
-    </methodCall>\n", request.method_name, param_str)
+    </methodCall>\n", request.method_name, param_str))
 }
 

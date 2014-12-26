@@ -123,17 +123,16 @@ fn parse_element(input_str: &str) -> Result<(Element, &str), String> {
 }
 
 pub fn serialize_xml(element: &Element) -> String {
-    "<?xml version=\"1.0\"?>\n".to_string() + serialize_element(element)
+    "<?xml version=\"1.0\"?>\n".to_string() + serialize_element(element).as_slice()
 }
 
 fn serialize_element(element: &Element) -> String {
-    let mut result = "".to_string();
+    let mut result = format!("<{}>{}", element.name, element.text);
 
-    result = result + format!("<{}>{}", element.name, element.text);
     for child_element in element.children.iter() {
-        result = result + serialize_element(child_element);
+        result = result + serialize_element(child_element).as_slice();
     }
-    result = result + format!("</{}>", element.name);
+    result = result + format!("</{}>", element.name).as_slice();
 
     result
 }
@@ -150,7 +149,7 @@ fn get_stag_token(input_str: &str) -> Option<(Token, &str)> {
     let stag_re = regex!("^<([:alnum:]+)[:space:]*>");
     match stag_re.captures(input_str) {
         None => None,
-        Some(caps) => Some((Token::STag(caps.at(1).to_string()),
+        Some(caps) => Some((Token::STag(caps.at(1).unwrap().to_string()),
                     get_remaining_string(&caps, input_str))),
     }
 }
@@ -159,7 +158,7 @@ fn get_etag_token(input_str: &str) -> Option<(Token, &str)> {
     let etag_re = regex!("^</([:alnum:]+)[:space:]*>");
     match etag_re.captures(input_str) {
         None => None,
-        Some(caps) => Some((Token::ETag(caps.at(1).to_string()),
+        Some(caps) => Some((Token::ETag(caps.at(1).unwrap().to_string()),
             get_remaining_string(&caps, input_str))),
     }
 }
@@ -168,7 +167,7 @@ fn get_text_token(input_str: &str) -> Option<(Token, &str)> {
     let text_re = regex!("(^[^<]+)");
     match text_re.captures(input_str) {
         None => None,
-        Some(caps) => Some((Token::Text(caps.at(1).to_string()),
+        Some(caps) => Some((Token::Text(caps.at(1).unwrap().to_string()),
             get_remaining_string(&caps, input_str))),
     }
 }

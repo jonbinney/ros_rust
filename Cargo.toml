@@ -9,3 +9,6 @@ name = "ros_rust"
 [[bin]]
 name = "ros_rust_demo"
 
+[[bin]]
+name = "xmlrpc_server_demo"
+
