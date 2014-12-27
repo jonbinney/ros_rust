@@ -1,34 +1,75 @@
-use std::io::{TcpListener, TcpStream};
-use std::io::{Acceptor, Listener};
+use std::io::TcpListener;
+use http;
+use xmlrpc::parser;
+use xmlrpc::common::{Request, Response, Value};
 
-//use xmlrpc::parser;
-//use xmlrpc::{Request, Response};
+pub fn run_xmlrpc_server<H: HandlesXmlrpcRequests>(
+    listener: TcpListener,
+    num_threads: uint,
+    xmlrpc_request_handler: H,
+    ) -> Result<(), String>
+{
+    let handler = RequestHandler {xmlrpc_request_handler: xmlrpc_request_handler};
 
-pub fn run() -> Result<(), String> {
-    let listener = TcpListener::bind("0.0.0.0:1212");
+    match http::run_http_server(listener, num_threads, handler) {
+        Ok(_) => Ok(()),
+        Err(_) => panic!("HTTP server died"),
+    }
+}
 
-    let mut acceptor = match listener.listen() {
-        Ok(x) => x,
-        Err(_) => return Err("Failed to create connection acceptor".to_string()),
-    };
+fn serialize_response(response: &Response) -> Result<String, String> {
+    match *response {
+        Response::Fault {fault_code: _, fault_string: _} => return Err(format!("Don't know how to serialize fault responses")),
+        Response::Success {ref param} => {
+            let param_str = match param {
+                &Value::String(ref val) => format!(
+                    "<param><value><string>{}</string></value></param>", val),
+                other_val => return Err(format!("Don't know how to serialize XMLRPC value {}", other_val)),
+            };
 
-    for stream in acceptor.incoming() {
-        match stream {
-            Err(_) => {},
-            Ok(stream) => handle_incoming_request(stream),
+            Ok(format!(
+                "<?xml version=\"1.0\"?>\n\
+                <methodResponse>\n\
+                <params>\n\
+                  <param>\n\
+                  {}\n\
+                  </param>\n\
+                </params>\n\
+                </methodResponse>\n", param_str))
+        },
+    }
+}
+
+/// Handles HTTP requests by parsing out the XMLRPC request, and calling
+/// the user supplied callback on it.
+#[deriving(Clone)]
+struct RequestHandler<H: HandlesXmlrpcRequests> {
+    xmlrpc_request_handler: H,
+}
+
+impl<H: HandlesXmlrpcRequests> http::HandlesHttpRequests for RequestHandler<H> {
+    fn handle_request(&self, _: &http::RequestHeader, body: &str) -> (int, String) {
+        println!("==== Got xmlrpc request:\n{}----\n", body);
+
+        match parser::parse_request(body) {
+            Err(err) => {
+                // TODO: Return a fault response to client
+                panic!(format!("Unable to parse incoming xmlrpc request:\n{}", err))
+            },
+            Ok(request) => {
+                let response = self.xmlrpc_request_handler.handle_request(&request);
+                match serialize_response(&response) {
+                    Err(err) => panic!(format!("Unable to serialize xmlrpc response:\n{}", err)),
+                    Ok(response_str) => {
+                        println!("response:\n{}====\n", response_str);
+                        (200, response_str)
+                    },
+                }
+            },
         }
     }
-
-    Ok(())
 }
 
-fn handle_incoming_request(mut stream: TcpStream) {
-    // Read response from server
-    let request_str = match stream.read_to_string() {
-        Ok(response_str) => response_str,
-        Err(err) => panic!("{}", err),
-    };
-
-    println!("===== Got request: \n{}\n=====", request_str);
+pub trait HandlesXmlrpcRequests: Sync + Send + Clone {
+    fn handle_request(&self, request: &Request) -> Response;
 }
-

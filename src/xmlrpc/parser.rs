@@ -1,8 +1,8 @@
 use xml;
-use xmlrpc::{Value, Response};
+use xmlrpc::{Value, Request, Response};
 
 fn parse_int(s: &str) -> Result<Value, String> {
-    let x: Option<int> = from_str(s);
+    let x: Option<int> = s.parse();
     match x {
         Some(x) => Ok(Value::Int(x)),
         None => Err(format!("String cannot be parsed to integer ({})", s)),
@@ -67,11 +67,48 @@ fn parse_param(element: &xml::Element) -> Result<Value, String> {
     }
 }
 
+/// Parse an XMLRPC request
+pub fn parse_request(request_str: &str) -> Result<Request, String> {
+    let request_element = try!(xml::parse_xml(request_str));
+
+    if request_element.name != "methodCall" {
+        return Err(format!("Expected methodCall element; found {}", request_element.name));
+    }
+
+    let mut found_method_name = false;
+    let mut request = Request {method_name: "".to_string(), params: vec![]};
+    for child in request_element.children.iter() {
+        match child.name.as_slice() {
+            "methodName" => {
+                found_method_name = true;
+                request.method_name = child.text.clone();
+            },
+            "params" => {
+                for param_element in child.children.iter() {
+                    match parse_param(param_element) {
+                        Ok(x) => {
+                            request.params.push(x);
+                        },
+                        Err(err) => {
+                            return Err(format!("Error parsing param in request: {}", err));
+                        }
+                    }
+                }
+            },
+            x => {
+                return Err(format!("Unexpected element in methodCall: {}", x));
+            },
+        }
+    }
+
+    match found_method_name {
+        true => Ok(request),
+        false => Err("Request missing methodName element".to_string()),
+    }
+}
+
 /// Parse an XMLRPC response
 pub fn parse_response(response_str: &str) -> Result<Response, String> {
-    // Technically we should remove the http header first, but the xml
-    // parser will actually ignore it and work anyway. Unless there is
-    // a "<" in it. Then this will totally fail.
     let method_response_element = try!(xml::parse_xml(response_str));
     match method_response_element.children.len() {
         1 => match method_response_element.children[0] {
@@ -87,89 +124,117 @@ pub fn parse_response(response_str: &str) -> Result<Response, String> {
     }
 }
 
-#[test]
-fn test_parse_response_good() {
-    let response_str =
-    "<?xml version=\"1.0\"?>\n\
-    <methodResponse>\n\
-       <params>\n\
-          <param>\n\
-             <value><string>param1</string></value>\n\
-          </param>\n\
-       </params>\n\
-    </methodResponse>\n";
+#[cfg(test)]
+mod tests {
+    use xml;
+    use xmlrpc::{Request, Response, Value};
+    use super::{parse_request, parse_response, parse_value};
 
-    let response = match parse_response(response_str) {
-        Ok(response) => response,
-        Err(err) => return assert!(false, "Parsing of response failed: {}", err),
-    };
-    let correct_response = Response::Success {param: Value::String("param1".to_string())};
-    assert_eq!(response, correct_response);
-}
+    #[test]
+    fn test_request_good() {
+        let request_str= "\
+        <?xml version=\"1.0\"?>\n\
+        <methodCall>\n\
+          <methodName>foo</methodName>\n\
+          <params>\n\
+            <param>\n\
+              <value><i4>42</i4></value>\n\
+            </param>\n\
+          </params>\n\
+        </methodCall>\n";
 
-#[test]
-fn test_parse_response_too_many_params() {
-    let response_str =
-    "<?xml version=\"1.0\"?>\n\
-    <methodResponse>\n\
-       <params>\n\
-          <param>\n\
-             <value><string>param1</string></value>\n\
-             <value><string>param2</string></value>\n\
-          </param>\n\
-       </params>\n\
-    </methodResponse>\n";
+        let request = match parse_request(request_str) {
+            Ok(request) => request,
+            Err(err) => return assert!(false, "Parsing of request failed: {}", err),
+        };
+        let correct_request = Request {method_name: "foo".to_string(), params: vec![Value::Int(42)]};
+        assert_eq!(request, correct_request);
+    }
 
-    match parse_response(response_str) {
-        Ok(_) => return assert!(false),
-        Err(_) => return (),
-    };
-}
+    #[test]
+    fn test_parse_response_good() {
+        let response_str =
+        "<?xml version=\"1.0\"?>\n\
+        <methodResponse>\n\
+           <params>\n\
+              <param>\n\
+                 <value><string>param1</string></value>\n\
+              </param>\n\
+           </params>\n\
+        </methodResponse>\n";
 
-#[test]
-fn test_parse_array_simple() {
-    let array_str =
-    "<value><array><data>\n\
-    <value><int>1</int></value>\n\
-    <value><int>2</int></value>\n\
-    </data></array></value>\n";
+        let response = match parse_response(response_str) {
+            Ok(response) => response,
+            Err(err) => return assert!(false, "Parsing of response failed: {}", err),
+        };
+        let correct_response = Response::Success {param: Value::String("param1".to_string())};
+        assert_eq!(response, correct_response);
+    }
 
-    let correct_val = Value::Array(vec![Value::Int(1), Value::Int(2)]);
+    #[test]
+    fn test_parse_response_too_many_values() {
+        let response_str =
+        "<?xml version=\"1.0\"?>\n\
+        <methodResponse>\n\
+           <params>\n\
+              <param>\n\
+                 <value><string>param1</string></value>\n\
+                 <value><string>param2</string></value>\n\
+              </param>\n\
+           </params>\n\
+        </methodResponse>\n";
 
-    let value_element = match xml::parse_xml(array_str) {
-        Ok(el) => el,
-        Err(err) => return assert!(false, err),
-    };
+        match parse_response(response_str) {
+            Ok(_) => return assert!(false),
+            Err(_) => return (),
+        };
+    }
 
-    match parse_value(&value_element) {
-        Ok(val) => return assert_eq!(val, correct_val),
-        Err(err) => return assert!(false, err),
-    };
-}
+    #[test]
+    fn test_parse_array_simple() {
+        let array_str =
+        "<value><array><data>\n\
+        <value><int>1</int></value>\n\
+        <value><int>2</int></value>\n\
+        </data></array></value>\n";
 
-#[test]
-fn test_parse_array_nested() {
-    let array_str =
-    "<value><array><data>\n\
-    <value><int>1</int></value>\n\
-    <value><string>Registered [meeeee] as publisher of [/foo]</string></value>\n\
-    <value><array><data>\n\
-    </data></array></value>\n\
-    </data></array></value>\n";
+        let correct_val = Value::Array(vec![Value::Int(1), Value::Int(2)]);
 
-    let correct_val = Value::Array(
-        vec![Value::Int(1),
-        Value::String("Registered [meeeee] as publisher of [/foo]".to_string()),
-        Value::Array(vec![])]);
+        let value_element = match xml::parse_xml(array_str) {
+            Ok(el) => el,
+            Err(err) => return assert!(false, err),
+        };
 
-    let value_element = match xml::parse_xml(array_str) {
-        Ok(el) => el,
-        Err(err) => return assert!(false, err),
-    };
+        match parse_value(&value_element) {
+            Ok(val) => return assert_eq!(val, correct_val),
+            Err(err) => return assert!(false, err),
+        };
+    }
 
-    match parse_value(&value_element) {
-        Ok(val) => return assert_eq!(val, correct_val),
-        Err(err) => return assert!(false, err),
-    };
+    #[test]
+    fn test_parse_array_nested() {
+        let array_str =
+        "<value><array><data>\n\
+        <value><int>1</int></value>\n\
+        <value><string>Registered [meeeee] as publisher of [/foo]</string></value>\n\
+        <value><array><data>\n\
+        </data></array></value>\n\
+        </data></array></value>\n";
+
+        let correct_val = Value::Array(
+            vec![Value::Int(1),
+            Value::String("Registered [meeeee] as publisher of [/foo]".to_string()),
+            Value::Array(vec![])]);
+
+        let value_element = match xml::parse_xml(array_str) {
+            Ok(el) => el,
+            Err(err) => return assert!(false, err),
+        };
+
+        match parse_value(&value_element) {
+            Ok(val) => return assert_eq!(val, correct_val),
+            Err(err) => return assert!(false, err),
+        };
+    }
 }
 

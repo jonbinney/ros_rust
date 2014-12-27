@@ -1,26 +1,10 @@
-pub mod parser;
-pub mod client;
-pub mod server;
+pub use xmlrpc::client::Client;
+pub use xmlrpc::server::{run_xmlrpc_server, HandlesXmlrpcRequests};
+pub use xmlrpc::common::{Request, Response, Value};
 
-#[deriving(Show, PartialEq)]
-pub enum Value {
-    Int (int),
-    Boolean (bool),
-    String (String),
-    Double (f64),
-    Array (Vec<Value>),
-    // Currently not handling dateTime.iso8601 base64 or struct types
-}
+mod client;
+mod server;
+mod parser;
+mod common;
 
-#[deriving(Show, PartialEq)]
-pub enum Response {
-    Success {param: Value},
-    Fault {fault_code: int, fault_string: String},
-}
-
-#[deriving(Show, PartialEq)]
-pub struct Request {
-    pub method_name: String,
-    pub params: Vec<Value>,
-}
 

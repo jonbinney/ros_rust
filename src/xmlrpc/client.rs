@@ -1,5 +1,4 @@
-use std::io::TcpStream;
-
+use http::post;
 use xmlrpc::parser;
 use xmlrpc::{Request, Response, Value};
 
@@ -9,44 +8,19 @@ pub struct Client {
 
 impl Client {
     pub fn execute_request(&self, request: &Request) -> Result<Response, String> {
-
-        let mut stream = match TcpStream::connect(self.server_uri.as_slice()) {
-            Ok(x) => x,
-            Err(_) => return Err("Unable to connect to xmlrpc server".to_string()),
+        let request_str = match serialize_request(request) {
+            Err(_) => return Err("Failed to serialize request".to_string()),
+            Ok(r) => r,
         };
 
-        let message = create_http_post(try!(serialize_request(request)).as_slice());
-        println!("Request: \n{}", message);
-
-        // Send request to server
-        match stream.write(message.as_bytes()) {
-            Ok(_) => (),
-            Err(err) => panic!("{}", err),
-        }
-
-        // Read response from server
-        let response_str = match stream.read_to_string() {
-            Ok(response_str) => response_str,
-            Err(err) => panic!("{}", err),
-        };
-
-        println!("Response: \n{}", response_str);
-
-        // Parse response
-        match parser::parse_response(response_str.as_slice()) {
-            Ok(response) => Ok(response),
-            Err(err) => Err(err)
+        match post(self.server_uri.as_slice(), request_str.as_slice()) {
+            Err(err) => Err(err),
+            Ok((_, response_body)) => match parser::parse_response(response_body.as_slice()) {
+                Ok(response) => Ok(response),
+                Err(err) => Err(err)
+            },
         }
     }
-}
-
-fn create_http_post(body: &str) -> String {
-    format!(
-        "POST /RPC2 HTTP/1.0\n\
-        User-Agent: RosRust/0.0\n\
-        Host: localhost\n\
-        Content-Type: text/xml\n\
-        Content-length: {content_length}\n\n{body}", content_length=body.len(), body=body)
 }
 
 fn serialize_request(request: &Request) -> Result<String, String> {
@@ -66,9 +40,7 @@ fn serialize_request(request: &Request) -> Result<String, String> {
     <methodCall>\n\
     <methodName>{}</methodName>\n\
     <params>\n\
-      <param>\n\
       {}\n\
-      </param>\n\
     </params>\n\
     </methodCall>\n", request.method_name, param_str))
 }

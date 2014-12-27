@@ -179,153 +179,158 @@ fn get_remaining_string<'a>(caps: &regex::Captures, input_str: &'a str) -> &'a s
     }
 }
 
-#[test]
-fn test_get_pi_token() {
-    // Should match
-    match get_pi_token("<? foo ?> asdf") {
-        None => return assert!(false, "Failed to match"),
-        Some((Token::PI, rem)) => assert_eq!(rem, " asdf"),
-        _ => assert!(false, "Bad match"),
-    };
+#[cfg(test)]
+mod tests {
+    use super::{get_pi_token, get_stag_token, get_etag_token, get_text_token, parse_xml};
+    use super::{Token, make_element, serialize_xml};
 
-    // Standard XMLDecl
-    match get_pi_token("<?xml version=\"1.0\"?><sdf>") {
-        None => return assert!(false, "Failed to match"),
-        Some((Token::PI, rem)) => assert_eq!(rem, "<sdf>"),
-        _ => assert!(false, "Bad match"),
-    };
+    #[test]
+    fn test_get_pi_token() {
+        // Should match
+        match get_pi_token("<? foo ?> asdf") {
+            None => return assert!(false, "Failed to match"),
+            Some((Token::PI, rem)) => assert_eq!(rem, " asdf"),
+            _ => assert!(false, "Bad match"),
+        };
 
-    // Shouldn't match a normal tag
-    match get_pi_token("<foo>") {
-        Some(_) => return assert!(false, "Incorrect match"),
-        _ => (),
-    };
-}
+        // Standard XMLDecl
+        match get_pi_token("<?xml version=\"1.0\"?><sdf>") {
+            None => return assert!(false, "Failed to match"),
+            Some((Token::PI, rem)) => assert_eq!(rem, "<sdf>"),
+            _ => assert!(false, "Bad match"),
+        };
 
-#[test]
-fn test_get_stag_token() {
-    // Should match
-    match get_stag_token("<foo> asdf") {
-        None => return assert!(false, "Failed to match"),
-        Some((Token::STag(name), rem)) => assert_eq!((name.as_slice(), rem), ("foo", " asdf")),
-        _ => assert!(false, "Bad match"),
-    };
-
-    // Should match even with a space after the name
-    match get_stag_token("<foo > asdf") {
-        None => return assert!(false, "Failed to match"),
-        Some((Token::STag(name), rem)) => assert_eq!((name.as_slice(), rem), ("foo", " asdf")),
-        _ => assert!(false, "Bad match"),
-    };
-
-    // Shouldn't match an end tag
-    match get_stag_token("<foo/>") {
-        Some(_) => return assert!(false, "Incorrect match"),
-        _ => (),
-    };
-}
-
-#[test]
-fn test_get_etag_token() {
-    // Should match
-    match get_etag_token("</foo> asdf") {
-        None => return assert!(false, "Failed to match"),
-        Some((Token::ETag(name), rem)) => assert_eq!((name.as_slice(), rem), ("foo", " asdf")),
-        _ => assert!(false, "Bad match"),
-    };
-
-    // Should match even with a space after the name
-    match get_etag_token("</foo > asdf") {
-        None => return assert!(false, "Failed to match"),
-        Some((Token::ETag(name), rem)) => assert_eq!((name.as_slice(), rem), ("foo", " asdf")),
-        _ => assert!(false, "Bad match"),
-    };
-
-    // Shouldn't match a start tag
-    match get_etag_token("<foo>") {
-        Some(_) => return assert!(false, "Incorrect match"),
-        _ => (),
-    };
-}
-
-#[test]
-fn test_get_text_token() {
-    // Should match
-    match get_text_token(" asdf asdf <") {
-        None => return assert!(false, "Failed to match"),
-        Some((Token::Text(text), rem)) => assert_eq!((text.as_slice(), rem), (" asdf asdf ", "<")),
-        _ => assert!(false, "Bad match"),
-    };
-
-    // Shouldn't match a start tag
-    match get_text_token("<foo>") {
-        Some(_) => return assert!(false, "Incorrect match"),
-        _ => (),
-    };
-}
-
-#[test]
-fn test_parse_xml() {
-    // Simplest possible test
-    match parse_xml("<foo></foo>") {
-        Err(_) => assert!(false, "Failed to parse"),
-        Ok(element) => assert_eq!(
-            element,
-            make_element("foo", "", vec![])
-        ),
+        // Shouldn't match a normal tag
+        match get_pi_token("<foo>") {
+            Some(_) => return assert!(false, "Incorrect match"),
+            _ => (),
+        };
     }
 
-    // Should be able to parse an xmlrpc response
-    match parse_xml(
-        "\
-        <?xml version=\"1.0\"?>\n\
-        <methodResponse>\n\
-          <params>\n\
-            <param>\n\
-              <value><string>some_string_param</string></value>\n\
-            </param>\n\
-          </params>\n\
-        </methodResponse>\n\
-        ") {
-        Err(_) => assert!(false, "Failed to parse"),
-        Ok(element) => assert_eq!(
-            element,
-            make_element("methodResponse", "\n", vec![
-                make_element("params", "\n", vec![
-                    make_element("param", "\n", vec![
-                        make_element("value", "", vec![
-                            make_element("string", "some_string_param", vec![])
+    #[test]
+    fn test_get_stag_token() {
+        // Should match
+        match get_stag_token("<foo> asdf") {
+            None => return assert!(false, "Failed to match"),
+            Some((Token::STag(name), rem)) => assert_eq!((name.as_slice(), rem), ("foo", " asdf")),
+            _ => assert!(false, "Bad match"),
+        };
+
+        // Should match even with a space after the name
+        match get_stag_token("<foo > asdf") {
+            None => return assert!(false, "Failed to match"),
+            Some((Token::STag(name), rem)) => assert_eq!((name.as_slice(), rem), ("foo", " asdf")),
+            _ => assert!(false, "Bad match"),
+        };
+
+        // Shouldn't match an end tag
+        match get_stag_token("<foo/>") {
+            Some(_) => return assert!(false, "Incorrect match"),
+            _ => (),
+        };
+    }
+
+    #[test]
+    fn test_get_etag_token() {
+        // Should match
+        match get_etag_token("</foo> asdf") {
+            None => return assert!(false, "Failed to match"),
+            Some((Token::ETag(name), rem)) => assert_eq!((name.as_slice(), rem), ("foo", " asdf")),
+            _ => assert!(false, "Bad match"),
+        };
+
+        // Should match even with a space after the name
+        match get_etag_token("</foo > asdf") {
+            None => return assert!(false, "Failed to match"),
+            Some((Token::ETag(name), rem)) => assert_eq!((name.as_slice(), rem), ("foo", " asdf")),
+            _ => assert!(false, "Bad match"),
+        };
+
+        // Shouldn't match a start tag
+        match get_etag_token("<foo>") {
+            Some(_) => return assert!(false, "Incorrect match"),
+            _ => (),
+        };
+    }
+
+    #[test]
+    fn test_get_text_token() {
+        // Should match
+        match get_text_token(" asdf asdf <") {
+            None => return assert!(false, "Failed to match"),
+            Some((Token::Text(text), rem)) => assert_eq!((text.as_slice(), rem), (" asdf asdf ", "<")),
+            _ => assert!(false, "Bad match"),
+        };
+
+        // Shouldn't match a start tag
+        match get_text_token("<foo>") {
+            Some(_) => return assert!(false, "Incorrect match"),
+            _ => (),
+        };
+    }
+
+    #[test]
+    fn test_parse_xml() {
+        // Simplest possible test
+        match parse_xml("<foo></foo>") {
+            Err(_) => assert!(false, "Failed to parse"),
+            Ok(element) => assert_eq!(
+                element,
+                make_element("foo", "", vec![])
+            ),
+        }
+
+        // Should be able to parse an xmlrpc response
+        match parse_xml(
+            "\
+            <?xml version=\"1.0\"?>\n\
+            <methodResponse>\n\
+              <params>\n\
+                <param>\n\
+                  <value><string>some_string_param</string></value>\n\
+                </param>\n\
+              </params>\n\
+            </methodResponse>\n\
+            ") {
+            Err(_) => assert!(false, "Failed to parse"),
+            Ok(element) => assert_eq!(
+                element,
+                make_element("methodResponse", "\n", vec![
+                    make_element("params", "\n", vec![
+                        make_element("param", "\n", vec![
+                            make_element("value", "", vec![
+                                make_element("string", "some_string_param", vec![])
+                            ])
                         ])
                     ])
                 ])
+            ),
+        }
+    }
+
+    #[test]
+    fn test_serialize_xml() {
+        let element = make_element("methodCall", "\n", vec![
+            make_element("methodName", "foo", vec![]),
+            make_element("params", "\n", vec![
+                make_element("param", "\n", vec![
+                    make_element("value", "", vec![
+                        make_element("string", "some_string_param", vec![])
+                    ])
+                ]),
+                make_element("param", "\n", vec![
+                    make_element("value", "", vec![
+                        make_element("int", "some_int_param", vec![])
+                    ])
+                ])
             ])
-        ),
+        ]);
+
+        // Serialize and de-serialize to test full loop.
+        let serialized_xml = serialize_xml(&element);
+        match parse_xml(serialized_xml.as_slice()) {
+            Err(_) => panic!("Failed to parse serialized xml"),
+            Ok(parsed_element) => assert_eq!(parsed_element, element),
+        };
     }
 }
-
-#[test]
-fn test_serialize_xml() {
-    let element = make_element("methodCall", "\n", vec![
-        make_element("methodName", "foo", vec![]),
-        make_element("params", "\n", vec![
-            make_element("param", "\n", vec![
-                make_element("value", "", vec![
-                    make_element("string", "some_string_param", vec![])
-                ])
-            ]),
-            make_element("param", "\n", vec![
-                make_element("value", "", vec![
-                    make_element("int", "some_int_param", vec![])
-                ])
-            ])
-        ])
-    ]);
-
-    // Serialize and de-serialize to test full loop.
-    let serialized_xml = serialize_xml(&element);
-    match parse_xml(serialized_xml.as_slice()) {
-        Err(_) => panic!("Failed to parse serialized xml"),
-        Ok(parsed_element) => assert_eq!(parsed_element, element),
-    };
-}
-
