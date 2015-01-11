@@ -1,19 +1,19 @@
-#![feature(phase)]
-#[phase(plugin, link)] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate ros_rust;
 
 use std::io::TcpListener;
 use std::sync::{Arc, Mutex};
 use ros_rust::http;
 
-#[deriving(Clone)]
+#[derive(Clone)]
 struct Handler {
-    request_count: Arc<Mutex<int>>,
+    request_count: Arc<Mutex<isize>>,
 }
 
 impl http::HandlesHttpRequests for Handler {
-    fn handle_request(&self, _: &http::RequestHeader, _: &str) -> (int, String) {
-        let mut count = self.request_count.lock();
+    fn handle_request(&self, _: &http::RequestHeader, _: &str) -> (i32, String) {
+        let mut count = self.request_count.lock().unwrap();
         let response_body = format!("<html><header></header><body>Hello world {}</body></html>", *count);
 
         *count = *count + 1;

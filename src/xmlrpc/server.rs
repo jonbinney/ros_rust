@@ -5,7 +5,7 @@ use xmlrpc::common::{Request, Response, Value};
 
 pub fn run_xmlrpc_server<H: HandlesXmlrpcRequests>(
     listener: TcpListener,
-    num_threads: uint,
+    num_threads: usize,
     xmlrpc_request_handler: H,
     ) -> Result<(), String>
 {
@@ -24,7 +24,7 @@ fn serialize_response(response: &Response) -> Result<String, String> {
             let param_str = match param {
                 &Value::String(ref val) => format!(
                     "<param><value><string>{}</string></value></param>", val),
-                other_val => return Err(format!("Don't know how to serialize XMLRPC value {}", other_val)),
+                other_val => return Err(format!("Don't know how to serialize XMLRPC value {:?}", other_val)),
             };
 
             Ok(format!(
@@ -42,13 +42,13 @@ fn serialize_response(response: &Response) -> Result<String, String> {
 
 /// Handles HTTP requests by parsing out the XMLRPC request, and calling
 /// the user supplied callback on it.
-#[deriving(Clone)]
+#[derive(Clone)]
 struct RequestHandler<H: HandlesXmlrpcRequests> {
     xmlrpc_request_handler: H,
 }
 
 impl<H: HandlesXmlrpcRequests> http::HandlesHttpRequests for RequestHandler<H> {
-    fn handle_request(&self, _: &http::RequestHeader, body: &str) -> (int, String) {
+    fn handle_request(&self, _: &http::RequestHeader, body: &str) -> (i32, String) {
         println!("==== Got xmlrpc request:\n{}----\n", body);
 
         match parser::parse_request(body) {

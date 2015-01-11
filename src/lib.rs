@@ -1,11 +1,11 @@
 #![feature(slicing_syntax)]
-#![feature(phase)]
 
-#[phase(plugin)]
+#![feature(plugin)]
+#[plugin] #[no_link]
 extern crate regex_macros;
 extern crate regex;
 
-#[phase(plugin, link)]
+#[macro_use]
 extern crate log;
 
 pub mod xml;

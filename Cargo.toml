@@ -3,3 +3,8 @@ name = "ros_rust"
 version = "0.1.0"
 authors = [ "Jon Binney <jon.binney@gmail.com>" ]
 
+[dependencies.regex_macros]
+git = "https://github.com/rust-lang/regex"
+
+[dependencies.log]
+git = "https://github.com/rust-lang/log"

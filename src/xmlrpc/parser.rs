@@ -2,7 +2,7 @@ use xml;
 use xmlrpc::{Value, Request, Response};
 
 fn parse_int(s: &str) -> Result<Value, String> {
-    let x: Option<int> = s.parse();
+    let x: Option<i32> = s.parse();
     match x {
         Some(x) => Ok(Value::Int(x)),
         None => Err(format!("String cannot be parsed to integer ({})", s)),

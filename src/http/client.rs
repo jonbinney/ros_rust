@@ -23,7 +23,7 @@ fn read_http_response_header<R: Reader>(stream: &mut R) -> Result<ResponseHeader
         };
         header_str.push(b as char);
         if header_str.len() >= 4 {
-            if header_str.as_slice()[header_str.len()-4..] == "\r\n\r\n" {
+            if header_str.as_slice()[header_str.len()-4..] == *"\r\n\r\n".as_slice() {
                 done = true;
             }
         }
@@ -35,7 +35,7 @@ fn read_http_response_header<R: Reader>(stream: &mut R) -> Result<ResponseHeader
         None => return Err("Bad status line in response header".to_string()),
         Some(caps) => {
             let s = caps.at(2).unwrap();
-            let x: Option<int> = s.parse();
+            let x: Option<i32> = s.parse();
             match x {
                 Some(x) => {
                     header.status = x;
@@ -51,7 +51,7 @@ fn read_http_response_header<R: Reader>(stream: &mut R) -> Result<ResponseHeader
         None => return Err(format!("Header missing Content-Length field:\n{}", header_str)),
         Some(caps) => {
             let s = caps.at(1).unwrap();
-            let x: Option<int> = s.parse();
+            let x: Option<isize> = s.parse();
             match x {
                 Some(x) => {
                     header.content_length = x;
@@ -84,7 +84,7 @@ fn read_http_response<R: Reader>(stream: &mut R) -> Result<(ResponseHeader, Stri
             Err(_) => return Err("Failed to read response body from stream".to_string()),
         };
         body.push(b as char);
-        if body.len() >= header.content_length as uint {
+        if body.len() >= header.content_length as usize {
             done = true;
         }
     }

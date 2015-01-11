@@ -31,7 +31,7 @@ fn serialize_request(request: &Request) -> Result<String, String> {
                 param_str = param_str + format!(
                   "<param><value><string>{}</string></value></param>", val).as_slice();
             },
-            other_val => return Err(format!("Don't know how to serialize XMLRPC value {}", other_val)),
+            other_val => return Err(format!("Don't know how to serialize XMLRPC value {:?}", other_val)),
         };
     };
 

@@ -3,7 +3,7 @@ use ros_rust::xmlrpc;
 
 use std::io::TcpListener;
 
-#[deriving(Clone)]
+#[derive(Clone)]
 struct Handler;
 
 impl xmlrpc::HandlesXmlrpcRequests for Handler {
@@ -19,7 +19,7 @@ fn main() {
 
     // Parameters
     let ros_master_uri = "localhost:11311";
-    let node_port: int = 1212;
+    let node_port: i32 = 1212;
     let caller_api = format!("http://127.0.0.1:{}", node_port);
     println!("caller_api: {}", caller_api);
 
@@ -37,7 +37,7 @@ fn main() {
             Ok(response) => response,
             Err(err) => panic!("Err: {}", err),
         };
-    println!("response: {}", response);
+    println!("response: {:?}", response);
 
     // Run a ROS Slave XMLRPC server
     println!("Starting server");

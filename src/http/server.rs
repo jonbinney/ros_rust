@@ -5,7 +5,7 @@ use std::sync::TaskPool;
 
 pub fn run_http_server<H: HandlesHttpRequests>(
     listener: TcpListener,
-    num_threads: uint,
+    num_threads: usize,
     request_handler: H,
     ) -> Result<(), String> {
     let pool = TaskPool::new(num_threads);
@@ -47,7 +47,7 @@ fn handle_incoming_request<H: HandlesHttpRequests>(
     };
 }
 
-fn create_http_response(status: int, body: &str) -> String {
+fn create_http_response(status: i32, body: &str) -> String {
     format!("\
         HTTP/1.1 {status} OK\n\
         Connection: close\n\
@@ -72,7 +72,7 @@ fn read_http_request_header<R: Reader>(stream: &mut R) -> Result<RequestHeader, 
         };
         header_str.push(b as char);
         if header_str.len() >= 4 {
-            if header_str.as_slice()[header_str.len()-4..] == "\r\n\r\n" {
+            if header_str.as_slice()[header_str.len()-4..] == *"\r\n\r\n".as_slice() {
                 done = true;
             }
         }
@@ -97,7 +97,7 @@ fn read_http_request_header<R: Reader>(stream: &mut R) -> Result<RequestHeader, 
             None => return Err("Header missing Content-Length field".to_string()),
             Some(caps) => {
                 let s = caps.at(1).unwrap();
-                let x: Option<int> = s.parse();
+                let x: Option<i32> = s.parse();
                 match x {
                     Some(x) => {
                         header.content_length = x;
@@ -133,7 +133,7 @@ fn read_http_request<R: Reader>(stream: &mut R) -> Result<(RequestHeader, String
                     Err(_) => return Err("Failed to read requst body from stream".to_string()),
                 };
                 body.push(b as char);
-                if body.len() >= header.content_length as uint {
+                if body.len() >= header.content_length as usize {
                     done = true;
                 }
             };
@@ -145,7 +145,7 @@ fn read_http_request<R: Reader>(stream: &mut R) -> Result<(RequestHeader, String
 }
 
 pub trait HandlesHttpRequests: Sync + Send + Clone {
-    fn handle_request(&self, header: &RequestHeader, body: &str) -> (int, String);
+    fn handle_request(&self, header: &RequestHeader, body: &str) -> (i32, String);
 }
 
 #[cfg(test)]
