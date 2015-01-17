@@ -8,3 +8,6 @@ git = "https://github.com/rust-lang/regex"
 
 [dependencies.log]
 git = "https://github.com/rust-lang/log"
+
+[dependencies.rustc-serialize]
+git = "https://github.com/rust-lang/rustc-serialize"

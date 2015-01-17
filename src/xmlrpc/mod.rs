@@ -6,5 +6,6 @@ mod client;
 mod server;
 mod parser;
 mod common;
+mod macros;
 
 
