@@ -1,0 +1,3 @@
+<launch>
+  <test test-name="test_empty_node" pkg="ros_rust" type="test_empty" />
+</launch>
