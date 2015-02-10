@@ -98,7 +98,7 @@ pub fn post(server_uri: &str, body: &str) -> Result<(ResponseHeader, String), St
     let message = create_http_post(body);
 
     // Send request to server
-    match stream.write(message.as_bytes()) {
+    match stream.write_all(message.as_bytes()) {
         Ok(_) => (),
         Err(_) => return Err("Unable to send request to server".to_string()),
     }

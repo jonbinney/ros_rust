@@ -1,3 +1,4 @@
+#![feature(io)]
 #[macro_use]
 extern crate log;
 extern crate ros_rust;

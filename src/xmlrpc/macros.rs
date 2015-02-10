@@ -1,5 +1,3 @@
-use xmlrpc::common::Value;
-
 macro_rules! validate_xmlrpc_value_recursive {
     ( $v:ident, ( $($T:tt),* ) ) => (
         match $v {

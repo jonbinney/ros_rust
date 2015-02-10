@@ -1,3 +1,4 @@
+#![feature(io)]
 extern crate ros_rust;
 use ros_rust::xmlrpc;
 

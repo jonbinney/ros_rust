@@ -1,4 +1,5 @@
 #![feature(slicing_syntax)]
+#![feature(io)]
 
 #![feature(plugin)]
 #[plugin] #[no_link]
