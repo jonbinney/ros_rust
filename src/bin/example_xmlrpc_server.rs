@@ -1,7 +1,7 @@
 extern crate ros_rust;
 use ros_rust::xmlrpc;
 
-use std::io::TcpListener;
+use std::old_io::TcpListener;
 
 #[derive(Clone)]
 struct Handler;

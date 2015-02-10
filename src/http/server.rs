@@ -1,5 +1,5 @@
-use std::io::{TcpListener, TcpStream};
-use std::io::{Acceptor, Listener};
+use std::old_io::{TcpListener, TcpStream};
+use std::old_io::{Acceptor, Listener};
 use http::RequestHeader;
 use std::sync::TaskPool;
 
@@ -96,14 +96,13 @@ fn read_http_request_header<R: Reader>(stream: &mut R) -> Result<RequestHeader, 
         match content_length_re.captures(header_str.as_slice()) {
             None => return Err("Header missing Content-Length field".to_string()),
             Some(caps) => {
-                let s = caps.at(1).unwrap();
-                let x: Option<i32> = s.parse();
-                match x {
-                    Some(x) => {
-                        header.content_length = x;
+                header.content_length = match caps.at(1) {
+                    None => panic!("Capture field unexpectedly missing".to_string()),
+                    Some(s) => match s.parse() {
+                        Ok(x) => x,
+                        Err(_) => return Err("Failed to parse content-length to string".to_string()),
                     },
-                    None => return Err(format!("Content-Length field in header cannot be parsed to integer ({})", s)),
-                };
+                }
             },
         };
     };
@@ -151,7 +150,7 @@ pub trait HandlesHttpRequests: Sync + Send + Clone {
 #[cfg(test)]
 mod tests {
     use http::RequestHeader;
-    use std::io::MemReader;
+    use std::old_io::MemReader;
 
     #[test]
     fn test_parse_request_header() {

@@ -4,13 +4,13 @@ pub use self::client::post;
 mod server;
 mod client;
 
-#[derive(Show, PartialEq, Copy)]
+#[derive(Debug, PartialEq, Copy)]
 pub struct ResponseHeader {
     status: i32,
     content_length: isize,
 }
 
-#[derive(Show, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct RequestHeader {
     method: String,
     request_uri: String,

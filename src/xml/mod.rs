@@ -12,7 +12,7 @@ use regex;
 /// An XML element. An element in an XML document is defined by a start and
 /// end tag, and may have text or other elements inside of it. There is also
 /// an implicit "root" element which includes all other elements.
-#[derive(Show, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Element {
     pub name: String,
     pub text: String,

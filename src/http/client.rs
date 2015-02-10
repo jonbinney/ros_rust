@@ -1,4 +1,4 @@
-use std::io::TcpStream;
+use std::old_io::TcpStream;
 use http::ResponseHeader;
 
 fn create_http_post(body: &str) -> String {
@@ -31,35 +31,31 @@ fn read_http_response_header<R: Reader>(stream: &mut R) -> Result<ResponseHeader
 
     // Parse the status line
     let status_line_re = regex!("^(.+) (.+) (.+)\n");
-    match status_line_re.captures(header_str.as_slice()) {
+    let caps = match status_line_re.captures(header_str.as_slice()) {
         None => return Err("Bad status line in response header".to_string()),
-        Some(caps) => {
-            let s = caps.at(2).unwrap();
-            let x: Option<i32> = s.parse();
-            match x {
-                Some(x) => {
-                    header.status = x;
-                },
-                None => return Err(format!("Status field in header cannot be parsed to integer ({})", s)),
-            };
+        Some(caps) => caps,
+    };
+    header.status =  match caps.at(2) {
+        None => panic!("Missing required field in capture"),
+        Some(s) => match s.parse() {
+            Err(_) => return Err(format!("Status field in header cannot be parsed to integer ({})", s)),
+            Ok(x) => x,
         },
-    }
+    };
 
     // Look for the Content-Length
     let content_length_re = regex!("(?i)Content-Length: ([0-9]+)\r\n");
-    match content_length_re.captures(header_str.as_slice()) {
+    let caps = match content_length_re.captures(header_str.as_slice()) {
         None => return Err(format!("Header missing Content-Length field:\n{}", header_str)),
-        Some(caps) => {
-            let s = caps.at(1).unwrap();
-            let x: Option<isize> = s.parse();
-            match x {
-                Some(x) => {
-                    header.content_length = x;
-                },
-                None => return Err(format!("Content-Length field in header cannot be parsed to integer ({})", s)),
-            };
+        Some(caps) => caps,
+    };
+    header.content_length = match caps.at(1) {
+        None => panic!("Missing required field in capture"),
+        Some(s) => match s.parse() {
+            Err(_) => return Err(format!("Content-Length field in header cannot be parsed to integer ({})", s)),
+            Ok(x) => x,
         },
-    }
+    };
 
     Ok(header)
 }
@@ -116,7 +112,7 @@ pub fn post(server_uri: &str, body: &str) -> Result<(ResponseHeader, String), St
 #[cfg(test)]
 mod tests {
     use http::ResponseHeader;
-    use std::io::MemReader;
+    use std::old_io::MemReader;
 
     #[test]
     fn test_parse_response_header() {

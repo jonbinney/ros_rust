@@ -2,7 +2,7 @@
 extern crate log;
 extern crate ros_rust;
 
-use std::io::TcpListener;
+use std::old_io::TcpListener;
 use std::sync::{Arc, Mutex};
 use ros_rust::http;
 

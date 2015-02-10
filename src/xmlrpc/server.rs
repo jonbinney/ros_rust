@@ -1,4 +1,4 @@
-use std::io::TcpListener;
+use std::old_io::TcpListener;
 use http;
 use xmlrpc::parser;
 use xmlrpc::common::{Request, Response, Value};
