@@ -9,7 +9,8 @@ extern crate regex;
 #[macro_use]
 extern crate log;
 
-pub mod xml;
+pub mod msg;
 pub mod http;
+pub mod xml;
 pub mod xmlrpc;
 

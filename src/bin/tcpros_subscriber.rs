@@ -3,6 +3,46 @@ extern crate ros_rust;
 use std::mem;
 use std::os;
 use std::old_io::TcpStream;
+use std::old_io::MemReader;
+use std::collections::HashMap;
+
+use ros_rust::msg::std_msgs;
+
+/// Read a TCPROS connection header into a HashMap of key and value strings
+fn read_connection_header<R: Reader>(stream: &mut R) -> Result<HashMap<String, String>, String> {
+    let header_length = match stream.read_le_u32() {
+        Ok(header_length) => header_length,
+        Err(_) => return Err("Failed to read connection header length".to_string()),
+    };
+
+    // Read the connection header fields
+    let mut header_bytes_read = 0u32;
+    let mut fields: HashMap<String, String> = HashMap::new();
+    while header_bytes_read < header_length {
+        // Read the length of this field
+        let field_length = match stream.read_le_u32() {
+            Ok(field_length) => field_length,
+            Err(_) => return Err("Failed to read connection header length".to_string()),
+        };
+        header_bytes_read += 4;
+
+        // Read the field itself
+        let field_bytes = match stream.read_exact(field_length as usize) {
+            Ok(field_bytes) => field_bytes,
+            Err(_) => return Err("Failed to read connection header field".to_string()),
+        };
+
+        let field_string = match String::from_utf8(field_bytes) {
+            Ok(s) => s,
+            Err(_) => return Err("Failed to interpret connection header field as string".to_string()),
+        };
+
+        println!("{:?}", field_string);
+
+        header_bytes_read += field_length;
+    }
+    Ok(fields)
+}
 
 #[allow(dead_code)]
 fn main() {
@@ -47,10 +87,16 @@ fn main() {
         Err(_) => panic!("Unable to send data to server".to_string()),
     };
 
+    // Read the connection header that the server sends
+    let connection_header_fields = match read_connection_header(&mut stream) {
+        Ok(fields) => fields,
+        Err(err) => panic!(err),
+    };
+
     println!("Reading data");
     loop {
-        match stream.read_byte() {
-            Ok(b) => println!("{}", b.to_string()),
+        match std_msgs::String::from_stream(&mut stream) {
+            Ok(s) => println!("{}", s.data),
             Err(_) => panic!("Read failed!"),
         }
     }
